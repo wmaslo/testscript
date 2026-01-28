@@ -16,6 +16,13 @@ def get_db_path() -> Path:
     return Path(os.getenv("TESTGEN_DB", DEFAULT_DB_PATH))
 
 
+if not get_db_path().exists():
+    raise RuntimeError(
+        f"Datenbank fehlt: {get_db_path()}\n"
+        "Hast du schema.sql angewendet?"
+    )
+
+
 @contextmanager
 def connect():
     db_path = get_db_path()
@@ -193,6 +200,34 @@ def list_test_questions(test_id: int) -> list[tuple[int, str, str]]:
         (test_id,),
     )
     return [(int(r[0]), str(r[1]), str(r[2])) for r in rows]
+
+def list_tests() -> list[tuple[int, str, str | None]]:
+    """
+    Gibt alle Tests zurück als (id, title, test_date).
+    Neueste zuerst (nach id).
+    """
+    rows = query_all(
+        "SELECT id, title, test_date FROM tests ORDER BY id DESC;"
+    )
+    return [(int(r[0]), str(r[1]), r[2] if r[2] is None else str(r[2])) for r in rows]
+
+
+def get_category_name(category_id: int) -> str | None:
+    row = query_all(
+        "SELECT name FROM categories WHERE id = ? LIMIT 1;",
+        (category_id,),
+    )
+    if not row:
+        return None
+    return str(row[0][0])
+
+
+def question_exists(question_id: int) -> bool:
+    rows = query_all(
+        "SELECT 1 FROM questions WHERE id = ? LIMIT 1;",
+        (question_id,),
+    )
+    return bool(rows)
 
 
 if __name__ == "__main__":
